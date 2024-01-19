@@ -1,7 +1,7 @@
 "use server";
 
-import { prisma } from "./database";
 import { PCDescription } from "@/interface/room";
+import { getPrisma } from "@/utils/database";
 
 export async function addDescriptionAction({
   roomMemberId,
@@ -12,6 +12,7 @@ export async function addDescriptionAction({
   description: PCDescription;
   dataType: string;
 }) {
+  const prisma = getPrisma();
   await prisma.description.upsert({
     where: {
       roomMemberId_dataType: {
@@ -36,6 +37,7 @@ export async function getDescriptionAction({
   roomId: string;
   dataType: string;
 }) {
+  const prisma = getPrisma();
   return await prisma.description.findMany({
     where: {
       roomMember: {

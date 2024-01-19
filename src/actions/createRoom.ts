@@ -1,60 +1,48 @@
 "use server";
 
-import { prisma } from "./database";
+import { getPrisma } from "@/utils/database";
+import { Room, RoomMember } from "@prisma/client";
 
-export async function createRoomAction(ipId: string) {
-  console.log("ipId", ipId);
-  const newUser = await prisma.user.upsert({
-    where: {
-      ip: ipId,
-    },
-    create: {
-      ip: ipId,
-      name: "username",
-    },
-    update: {
-      ip: ipId,
-      name: "username",
-    },
-  });
-
-  const newRoom = await prisma.room.upsert({
+export const createRoomAction = async ({
+  userId,
+}: {
+  userId: string;
+}): Promise<{ room: Room; roomMember: RoomMember }> => {
+  const prisma = getPrisma();
+  const room = await prisma.room.upsert({
     where: {
       ownerId_isActive: {
-        ownerId: newUser.id,
+        ownerId: userId,
         isActive: true,
       },
     },
     create: {
-      ownerId: newUser.id,
-      name: "channelName",
+      ownerId: userId,
     },
     update: {
-      ownerId: newUser.id,
-      name: "channelName",
+      ownerId: userId,
     },
   });
 
-  const newRoomMember = await prisma.roomMember.upsert({
+  const roomMember = await prisma.roomMember.upsert({
     where: {
       memberId_roomId: {
-        memberId: newUser.id,
-        roomId: newRoom.id,
+        memberId: userId,
+        roomId: room.id,
       },
     },
     create: {
-      memberId: newUser.id,
-      roomId: newRoom.id,
+      memberId: userId,
+      roomId: room.id,
     },
     update: {
-      memberId: newUser.id,
-      roomId: newRoom.id,
+      memberId: userId,
+      roomId: room.id,
     },
   });
 
   return {
-    newRoom,
-    newUser,
-    newRoomMember,
+    room,
+    roomMember,
   };
-}
+};

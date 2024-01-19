@@ -1,17 +1,19 @@
 "use client"
-import { AspectRatio } from '@radix-ui/react-aspect-ratio';
-import Image from 'next/image'
 import { useEffect } from 'react';
 
 import { useRoom } from '@/context/room';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useRouter } from 'next/navigation'
+import { useOffer } from '@/context/offer';
+import { useUser } from '@/context/user';
 
 export default function Create() {
 
 
-  const { createRoom, setStream, generateOffer } = useRoom();
+  const { createRoom } = useRoom();
+  const { user } = useUser();
+  const { generateOffer } = useOffer();
 
   const router = useRouter()
 
@@ -21,14 +23,15 @@ export default function Create() {
   }, [])
 
   const getThingSetup = async () => {
+    if (user && createRoom && generateOffer) {
+      const {
+        room, roomMember
+      } = await createRoom({ userId: user.id })
+      // setStream()
+      await generateOffer({ roomMember });
+      router.push(`/room/${room.id}`)
+    }
 
-    const {
-      newRoom, newUser, newRoomMember
-    } = await createRoom()
-    // setStream()
-    await generateOffer({ roomMember: newRoomMember });
-
-    router.push(`/room/${newRoom.id}`)
   }
 
   return (

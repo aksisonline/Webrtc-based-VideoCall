@@ -1,7 +1,7 @@
 "use server";
 
 import { IceCandidate } from "@/interface/room";
-import { prisma } from "./database";
+import { getPrisma } from "@/utils/database";
 
 export async function addIceCandidateAction({
   roomMemberId,
@@ -12,6 +12,7 @@ export async function addIceCandidateAction({
   candidate: IceCandidate;
   dataType: string;
 }) {
+  const prisma = getPrisma();
   await prisma.candidate.upsert({
     where: {
       roomMemberId_candidate: {
@@ -38,6 +39,7 @@ export async function getIceCandidateAction({
   roomId: string;
   dataType: string;
 }) {
+  const prisma = getPrisma();
   return await prisma.candidate.findMany({
     where: {
       roomMember: {

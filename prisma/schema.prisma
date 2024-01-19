@@ -12,7 +12,7 @@ datasource db {
 
 model User {
   id         String       @id @default(cuid())
-  ip         String       @unique
+  deviceId   String       @unique
   name       String
   Room       Room[]
   isBlocked  Boolean      @default(false)
@@ -23,7 +23,6 @@ model Room {
   id         String       @id @default(cuid())
   ownerId    String
   owner      User?        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  name       String
   isActive   Boolean      @default(true)
   RoomMember RoomMember[]
 

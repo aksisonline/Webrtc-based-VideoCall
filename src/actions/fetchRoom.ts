@@ -1,49 +1,47 @@
 "use server";
 
-import { prisma } from "./database";
+import { getPrisma } from "@/utils/database";
 
-export async function fetchRoomAction({ id }: { id: string }) {
+export async function fetchRoomAction({ roomId }: { roomId: string }) {
+  const prisma = getPrisma();
   const room = await prisma.room.findUnique({
     where: {
-      id: id,
+      id: roomId,
     },
   });
   return room;
 }
 
-export async function fetchUserAction(ipId: string) {
-  const user = await prisma.user.upsert({
-    where: {
-      ip: ipId,
-    },
-    create: {
-      ip: ipId,
-      name: "new",
-    },
-    update: {},
-  });
-  return user;
-}
-
 export async function fetchRoomMemberAction({
-  memberId,
+  userId,
   roomId,
 }: {
+  userId: string;
   roomId: string;
-  memberId: string;
 }) {
+  const prisma = getPrisma();
   const roomMember = await prisma.roomMember.upsert({
     where: {
       memberId_roomId: {
-        memberId,
+        memberId: userId,
         roomId,
       },
     },
     create: {
-      memberId,
+      memberId: userId,
       roomId,
     },
     update: {},
   });
   return roomMember;
+}
+
+export async function fetchRoomMembersAction({ roomId }: { roomId: string }) {
+  const prisma = getPrisma();
+  const roomMembers = await prisma.roomMember.findMany({
+    where: {
+      roomId,
+    },
+  });
+  return roomMembers;
 }
