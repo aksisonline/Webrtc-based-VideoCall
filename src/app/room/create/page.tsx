@@ -3,7 +3,7 @@ import { AspectRatio } from '@radix-ui/react-aspect-ratio';
 import Image from 'next/image'
 import { useEffect } from 'react';
 
-import { useRoom } from '@/context/room/room';
+import { useRoom } from '@/context/room';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useRouter } from 'next/navigation'
@@ -11,23 +11,24 @@ import { useRouter } from 'next/navigation'
 export default function Create() {
 
 
-  const { createRoom, room, setStream, generateOffer } = useRoom();
+  const { createRoom, setStream, generateOffer } = useRoom();
 
   const router = useRouter()
 
 
   useEffect(() => {
-
-    createRoom()
-    setStream()
-    generateOffer();
-    // router.push('/room/22')
+    getThingSetup();
   }, [])
 
-  const getThingSetup = () => {
+  const getThingSetup = async () => {
 
-    createRoom()
-    setStream()
+    const {
+      newRoom, newUser, newRoomMember
+    } = await createRoom()
+    // setStream()
+    await generateOffer({ roomMember: newRoomMember });
+
+    router.push(`/room/${newRoom.id}`)
   }
 
   return (

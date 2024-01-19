@@ -3,8 +3,8 @@ import { AspectRatio } from '@radix-ui/react-aspect-ratio';
 import Image from 'next/image'
 import { useEffect, useState } from 'react';
 
-import { RealtimeChannel, SupabaseClient, createClient } from '@supabase/supabase-js'
-import { useRoom } from '@/context/room/room';
+import { RealtimeChannel } from '@supabase/supabase-js'
+import { useRoom } from '@/context/room';
 
 
 export default function Home() {
@@ -21,24 +21,23 @@ export default function Home() {
     console.log(payload)
   }
 
-  const { clientData } = useRoom();
 
   useEffect(() => {
 
-    if (clientData) {
+    // if (clientData) {
 
-      const myChannel = clientData.channel('room')
-      setCurrentRoom(myChannel)
+    //   const myChannel = clientData.channel('room')
+    //   setCurrentRoom(myChannel)
 
-      setRemoteVideo(document.getElementById('remoteStream') as HTMLVideoElement);
-      setLocalVideo(document.getElementById('localStream') as HTMLVideoElement);
-    }
+    //   setRemoteVideo(document.getElementById('remoteStream') as HTMLVideoElement);
+    //   setLocalVideo(document.getElementById('localStream') as HTMLVideoElement);
+    // }
 
-    console.log("remoteVideo", remoteVideo)
-    console.log("localVideo", localVideo)
-    return () => {
+    // console.log("remoteVideo", remoteVideo)
+    // console.log("localVideo", localVideo)
+    // return () => {
 
-    }
+    // }
   }, [])
 
 

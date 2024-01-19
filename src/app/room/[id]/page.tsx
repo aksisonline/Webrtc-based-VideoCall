@@ -3,60 +3,78 @@ import { AspectRatio } from '@radix-ui/react-aspect-ratio';
 import Image from 'next/image'
 import { useEffect, useState } from 'react';
 
-import { RealtimeChannel, SupabaseClient, createClient } from '@supabase/supabase-js'
-import { useRoom } from '@/context/room/room';
+import { RealtimeChannel, createClient } from '@supabase/supabase-js'
+import { useRoom } from '@/context/room';
 
 
-export default function Home() {
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
 
 
-  // Global State
+const clientData = createClient(SUPABASE_URL, SUPABASE_KEY);
+const myChannel = clientData.channel('room')
+
+export default function Home({
+  params: { id },
+}: {
+  params: { id: string }
+}) {
+
 
   const [remoteVideo, setRemoteVideo] = useState<HTMLVideoElement>();
   const [localVideo, setLocalVideo] = useState<HTMLVideoElement>();
-  const [currentRoom, setCurrentRoom] = useState<RealtimeChannel>();
 
   // Simple function to log any messages we receive
   function messageReceived(payload: any) {
     console.log(payload)
   }
 
-  const { clientData } = useRoom();
+  const { generateAnswer, room, currentRoomMember, generateOffer, setStream, fetchRoom, creator } = useRoom();
 
   useEffect(() => {
-
-    if (clientData) {
-
-      const myChannel = clientData.channel('room')
-      setCurrentRoom(myChannel)
-
-      setRemoteVideo(document.getElementById('remoteStream') as HTMLVideoElement);
-      setLocalVideo(document.getElementById('localStream') as HTMLVideoElement);
-    }
-
-    console.log("remoteVideo", remoteVideo)
-    console.log("localVideo", localVideo)
-    return () => {
-
-    }
+    setRemoteVideo(document.getElementById('remoteStream') as HTMLVideoElement);
+    setLocalVideo(document.getElementById('localStream') as HTMLVideoElement);
+    setupChannel()
   }, [])
 
 
-  // useEffect(() => {
+  const setupChannel = async () => {
+    let creatorData = creator;
+    let currentRoom = creator;
+    let currentRoomMember = creator;
+    if (!room) {
+      const data = await fetchRoom({ id });
+      creatorData = data.creatorData;
+      currentRoom = data.room;
+      currentRoomMember = data.roomMember;
+    }
 
-  //   if (currentRoom) {
+    if (creatorData) {
+      await generateOffer({ roomMember: currentRoomMember });
+    } else {
+      console.log("generateAnswer", currentRoomMember)
+      await generateAnswer({ roomMember: currentRoomMember, room: currentRoom, channel: myChannel });
+    }
+    // if (creator) {
+    //   myChannel
+    //     .on(
+    //       'broadcast',
+    //       { event: 'iceCandidate' },
+    //       (payload) => messageReceived(payload)
+    //     )
+    //     .subscribe()
+    //   myChannel
+    //     .on(
+    //       'broadcast',
+    //       { event: 'description' },
+    //       (payload) => messageReceived(payload)
+    //     )
+    //     .subscribe()
+    // }
+    // await setStream()
+  }
 
-  //     if (creator) {
-  //       currentRoom
-  //         .on(
-  //           'broadcast',
-  //           { event: 'response' },
-  //           (payload) => messageReceived(payload)
-  //         )
-  //         .subscribe()
-  //     }
-  //   }
-  // }, [currentRoom])
+
 
 
   return (

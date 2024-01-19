@@ -22,7 +22,7 @@ model User {
 model Room {
   id         String       @id @default(cuid())
   ownerId    String
-  owner      User?        @relation(fields: [ownerId], references: [id])
+  owner      User?        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   name       String
   isActive   Boolean      @default(true)
   RoomMember RoomMember[]
@@ -33,31 +33,37 @@ model Room {
 model RoomMember {
   id          String        @id @default(cuid())
   memberId    String
-  member      User?         @relation(fields: [memberId], references: [id])
+  member      User?         @relation(fields: [memberId], references: [id], onDelete: Cascade)
   roomId      String
-  room        Room?         @relation(fields: [roomId], references: [id])
+  room        Room?         @relation(fields: [roomId], references: [id], onDelete: Cascade)
   Description Description[]
   Candidate   Candidate[]
+
+  @@unique([memberId, roomId])
 }
 
 model Description {
   id           String      @id @default(cuid())
   roomMemberId String
-  roomMember   RoomMember? @relation(fields: [roomMemberId], references: [id])
+  roomMember   RoomMember? @relation(fields: [roomMemberId], references: [id], onDelete: Cascade)
   type         String
   sdp          String
   dataType     typeStatus
+
+  @@unique([roomMemberId, dataType])
 }
 
 model Candidate {
   id               String      @id @default(cuid())
   roomMemberId     String
-  roomMember       RoomMember? @relation(fields: [roomMemberId], references: [id])
+  roomMember       RoomMember? @relation(fields: [roomMemberId], references: [id], onDelete: Cascade)
   candidate        String
   sdpMLineIndex    Int?
   sdpMid           String?
   usernameFragment String?
   dataType         typeStatus
+
+  @@unique([roomMemberId, candidate])
 }
 
 enum typeStatus {
