@@ -1,6 +1,6 @@
 'use client'
 
-import { getPeerConnection } from '@/utils/peerConnection';
+import { getPeerConnection, setupStream } from '@/utils/peerConnection';
 import React, { useContext, useState } from "react";
 
 const initialValues: {
@@ -28,23 +28,15 @@ const StreamProvider: React.FC<Props> = ({ children }) => {
 
     // called on the useEffect to setup the streams
     const setStream = async () => {
-        const pc = getPeerConnection()
         const localStreamData = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-
+        const remoteVideo = document.getElementById('remoteStream') as HTMLVideoElement;
 
         setLocalStream(localStreamData);
-        // Push tracks from local stream to peer connection
-        localStreamData.getTracks().forEach((track) => {
-            pc.addTrack(track, localStreamData);
-        });
 
-        // Pull tracks from remote stream, add to video stream
-        pc.ontrack = (event) => {
-            console.log("ontrack", event);
-            event.streams[0].getTracks().forEach((track) => {
-                remoteStream.addTrack(track);
-            });
-        };
+        await setupStream({
+            localStreamData,
+            remoteVideo
+        });
     }
 
     return (

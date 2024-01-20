@@ -107,9 +107,6 @@ export const addIce = async (iceCandidate: IceCandidate) => {
       sdpMLineIndex: iceCandidate.sdpMLineIndex,
       usernameFragment: iceCandidate.usernameFragment,
     });
-
-    console.log("candidate", candidate);
-
     pc.addIceCandidate(candidate);
   }
 };
@@ -124,11 +121,8 @@ export const peerConnectionIcecandidate = async ({
   if (!pc) await setupPeerConnection();
 
   const roomChannel = await getRoom({ roomId: roomId });
-
-  console.log("Data", "here");
   pc.onicecandidate = async (event) => {
     if (event.candidate) {
-      console.log("event", event);
       // Send a message once the client is subscribed
       roomChannel.send({
         type: "broadcast",
@@ -150,15 +144,57 @@ export const peerConnectionIcecandidate = async ({
     console.log("connectionstatechange", event);
   };
 
-  pc.addEventListener("connectionstatechange", (event) => {
-    console.log("connectionstatechange", event);
-  });
-
-  pc.addEventListener("icegatheringstatechange", (event) => {
-    console.log("icegatheringstatechange", event);
-  });
+  pc.onsignalingstatechange = (event) => {
+    console.log("onsignalingstatechange", event);
+  };
 
   pc.addEventListener("iceconnectionstatechange", (event) => {
     console.log("iceconnectionstatechange", event);
   });
+};
+
+export const setupStream = async ({
+  localStreamData,
+  remoteVideo,
+}: {
+  localStreamData: MediaStream;
+  remoteVideo: HTMLVideoElement;
+}) => {
+  if (!pc) await setupPeerConnection();
+  // Push tracks from local stream to peer connection
+  localStreamData.getTracks().forEach((track) => {
+    console.log("track", track);
+    console.log("localStreamData", localStreamData);
+    pc.addTrack(track, localStreamData);
+  });
+
+  // Pull tracks from remote stream, add to video stream
+  // pc.ontrack = (event) => {
+  //   console.log("ontrack", event);
+  //   const [remoteStream] = event.streams;
+  //   remoteVideo.srcObject = remoteStream;
+  //   console.log("remoteStream", remoteStream);
+  // };
+  const remoteStream = new MediaStream();
+
+  remoteStream.addEventListener("addtrack", () => {
+    console.log("added");
+  });
+
+  remoteVideo.srcObject = remoteStream;
+  console.log("remoteVideo", remoteVideo.srcObject);
+  // pc.ontrack = (event) => {
+  //   event.streams[0].getTracks().forEach((track) => {
+  //     remoteStream.addTrack(track);
+  //   });
+  // };
+
+  pc.ontrack = (ev: any) => {
+    if (ev.streams && ev.streams[0]) {
+      remoteVideo.srcObject = ev.streams[0];
+    } else {
+      let inboundStream = new MediaStream(ev.track);
+      remoteVideo.srcObject = inboundStream;
+    }
+  };
 };
