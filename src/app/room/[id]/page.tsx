@@ -1,7 +1,5 @@
 "use client"
 import { useEffect, useState } from 'react';
-
-import { RealtimeChannel, createClient } from '@supabase/supabase-js'
 import { useRoom } from '@/context/room';
 import { useUser } from '@/context/user';
 import { useOffer } from '@/context/offer';
@@ -9,7 +7,7 @@ import { useAnswer } from '@/context/answer';
 import { useStream } from '@/context/stream';
 import { RoomMember } from '@prisma/client';
 import { getRoom } from '@/utils/supabase';
-import { getPeerConnection } from '@/utils/peerConnection';
+import { addIce, getCallStarterStatus, getPeerConnection, peerConnectionIcecandidate, peerSetRemoteDescription, setupTheOffer } from '@/utils/peerConnection';
 
 
 export default function Home({
@@ -23,18 +21,13 @@ export default function Home({
   const [localVideo, setLocalVideo] = useState<HTMLVideoElement>();
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Simple function to log any messages we receive
-  function messageReceived(payload: any) {
-    console.log(payload)
-  }
-
   const { room, creator, roomMembers, currentRoomMemberId, fetchRoom } = useRoom();
 
   const { user } = useUser();
 
-  const { generateOffer, offerCandidates, offerDescription, setupOfferIceCandidate } = useOffer();
+  const { generateOffer, offerDescription, } = useOffer();
 
-  const { generateAnswer, setupAnswer, setupAnswerIceCandidate } = useAnswer();
+  const { generateAnswer, } = useAnswer();
 
   const { localStream, setStream, remoteStream } = useStream();
 
@@ -48,6 +41,7 @@ export default function Home({
         localVideoData.srcObject = localStream;
       }
     }
+    console.log('i fire once: localStream');
   }, [localStream])
 
 
@@ -61,11 +55,13 @@ export default function Home({
       }
     }
 
+    console.log('i fire once: remoteStream');
   }, [remoteStream])
 
 
   useEffect(() => {
     setupChannel();
+    console.log('i fire once: channel');
   }, [])
 
 
@@ -75,6 +71,10 @@ export default function Home({
       let creatorData = creator;
       let currentRoom = room;
       let currentRoomMember: RoomMember = roomMembers[currentRoomMemberId];
+
+      await setStream()
+
+
       if (!room) {
         const data = await fetchRoom({ roomId: id, userId: user.id });
         creatorData = data.creator;
@@ -83,7 +83,12 @@ export default function Home({
       }
 
       const pc = getPeerConnection()
-      console.log(pc)
+
+      if (currentRoom)
+        await peerConnectionIcecandidate({
+          roomId: currentRoom.id,
+          roomMemberId: currentRoomMember.id
+        })
 
       if (creatorData && generateOffer) {
         await generateOffer({ roomMember: currentRoomMember });
@@ -91,58 +96,64 @@ export default function Home({
         await generateAnswer({ roomMember: currentRoomMember, room: currentRoom! });
       }
 
-      console.log(pc)
 
 
-      pc.addEventListener('connectionstatechange', (event) => {
-        console.log("connectionstatechange", event)
-      });
-      pc.addEventListener('icegatheringstatechange', (event) => {
-        console.log("icegatheringstatechange", event)
-      });
-
-
-      pc.addEventListener('iceconnectionstatechange', (event) => {
-        console.log("iceconnectionstatechange", event)
-      });
-
-      pc.addEventListener('negotiationneeded', (event) => {
+      pc.addEventListener('negotiationneeded', async (event) => {
         console.log("negotiationneeded", event)
+        const creator = getCallStarterStatus();
+        if (creator) {
+          const offer = await setupTheOffer();
+          // send the offer again
+          // roomChannel.send({
+          //   type: 'broadcast',
+          //   event: 'description',
+          //   payload: {
+          //     ...offer
+          //   },
+          // })
+        } else {
+          //TODO: investigate what can be done here
+
+          // const offer = await setupTheOffer();
+
+          console.log("here");
+        }
+
+
       });
 
       //setup the listener for the peer connection
 
-      await setStream()
 
 
 
       //setup the listener for the socket connection
-      const roomChannel = getRoom({ roomId: currentRoom!.id });
+      const roomChannel = await getRoom({ roomId: currentRoom!.id });
 
 
 
-      // roomChannel
-      //   .on(
-      //     'broadcast',
-      //     { event: 'iceCandidate' },
-      //     //TODO setup the s
-      //     (payload) => messageReceived(payload)
-      //   )
-      //   .subscribe()
+      roomChannel
+        .on(
+          'broadcast',
+          { event: 'iceCandidate' },
+          async (payload: any) => {
+            addIce({ ...payload.payload.candidate });
+          }
+        ).subscribe()
 
       roomChannel
         .on(
           'broadcast',
           { event: 'description' },
           (payload: any) => {
-            if (setupAnswer) setupAnswer({
+            const pc = getPeerConnection();
+            if (payload.payload.type === "answer" && pc.currentRemoteDescription) return;
+            peerSetRemoteDescription({
               sdp: payload.payload.sdp,
               type: payload.payload.type,
             })
-
           }
-        )
-        .subscribe()
+        ).subscribe()
 
       setLoading(false);
     }

@@ -40,7 +40,7 @@ const StreamProvider: React.FC<Props> = ({ children }) => {
 
         // Pull tracks from remote stream, add to video stream
         pc.ontrack = (event) => {
-            console.log(event);
+            console.log("ontrack", event);
             event.streams[0].getTracks().forEach((track) => {
                 remoteStream.addTrack(track);
             });

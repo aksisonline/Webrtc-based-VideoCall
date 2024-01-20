@@ -72,7 +72,7 @@ const UserProvider: React.FC<Props> = ({ children }) => {
 
     // called before going to the room screen
     const onStart = async () => {
-
+        setLoading(true)
         const user = await fetchUser();
 
         if (user) {
@@ -109,17 +109,17 @@ const UserProvider: React.FC<Props> = ({ children }) => {
                 ::
             </p>
         </div>
-    }
-    return (
-        <UserContext.Provider
-            value={{
-                user,
-                createUser
-            }}
-        >
-            {children}
-        </UserContext.Provider>
-    );
+    } else
+        return (
+            <UserContext.Provider
+                value={{
+                    user,
+                    createUser
+                }}
+            >
+                {children}
+            </UserContext.Provider>
+        );
 };
 
 export { UserProvider, useUser };
