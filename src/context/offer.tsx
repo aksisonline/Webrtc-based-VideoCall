@@ -49,6 +49,7 @@ const OfferProvider: React.FC<Props> = ({ children }) => {
                     ...offer
                 },
             })
+
             setOfferDescription(offer);
             //save offer to the database
 

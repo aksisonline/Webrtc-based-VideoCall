@@ -1,8 +1,9 @@
 'use client'
 
 import { addDescriptionAction, getDescriptionAction } from '@/actions/description';
+import { getIceCandidateAction } from '@/actions/iceCandidate';
 import { PCDescription, } from '@/interface/room';
-import { setupTheAnswer } from '@/utils/peerConnection';
+import { addIce, setupTheAnswer } from '@/utils/peerConnection';
 import { getRoom } from '@/utils/supabase';
 import { Room, RoomMember } from '@prisma/client';
 import React, { useContext, useState } from "react";
@@ -32,6 +33,10 @@ const AnswerProvider: React.FC<Props> = ({ children }) => {
             roomId: room.id,
             dataType: "Offer"
         })
+        const offerCandidates = await getIceCandidateAction({
+            roomId: room.id,
+            dataType: "Offer"
+        })
 
         const offerDescription = offerData[0];
         const answerDescription = await setupTheAnswer({
@@ -44,6 +49,14 @@ const AnswerProvider: React.FC<Props> = ({ children }) => {
             type: answerDescription.type,
         };
 
+        for (let offerCandidate of offerCandidates) {
+            await addIce({
+                candidate: offerCandidate.candidate,
+                sdpMid: offerCandidate.sdpMid,
+                sdpMLineIndex: offerCandidate.sdpMLineIndex,
+                usernameFragment: offerCandidate.usernameFragment,
+            })
+        }
 
         const roomChannel = await getRoom({ roomId: room.id });
 
@@ -55,14 +68,6 @@ const AnswerProvider: React.FC<Props> = ({ children }) => {
                 ...answer
             },
         })
-        await addDescriptionAction({
-            description: answer,
-            dataType: "Answer",
-            roomMemberId: roomMember.id,
-        })
-
-        //save answer to the database
-        setAnswersDescription(answer);
     }
 
     return (

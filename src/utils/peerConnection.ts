@@ -1,6 +1,7 @@
 import { IceCandidate } from "./../interface/room";
 import { PCDescription } from "@/interface/room";
 import { getRoom } from "./supabase";
+import { addIceCandidateAction } from "@/actions/iceCandidate";
 
 const servers = {
   iceServers: [
@@ -95,11 +96,12 @@ export const addIce = async (iceCandidate: IceCandidate) => {
   if (!pc) await setupPeerConnection();
 
   if (
-    iceCandidate &&
-    iceCandidate.candidate &&
-    iceCandidate.sdpMLineIndex &&
-    iceCandidate.sdpMid &&
-    iceCandidate.usernameFragment
+    iceCandidate != null &&
+    iceCandidate.candidate != null &&
+    iceCandidate.sdpMLineIndex != null &&
+    iceCandidate.sdpMid != null &&
+    iceCandidate.usernameFragment != null &&
+    pc.remoteDescription != null
   ) {
     let candidate = new RTCIceCandidate({
       candidate: iceCandidate.candidate,
@@ -137,19 +139,30 @@ export const peerConnectionIcecandidate = async ({
           },
         },
       });
+
+      await addIceCandidateAction({
+        roomMemberId: roomMemberId,
+        candidate: {
+          candidate: event.candidate.candidate,
+          sdpMid: event.candidate.sdpMid,
+          sdpMLineIndex: event.candidate.sdpMLineIndex,
+          usernameFragment: event.candidate.usernameFragment,
+        },
+        dataType: pc.localDescription?.type ?? "offer",
+      });
     }
   };
 
   pc.onconnectionstatechange = (event) => {
-    console.log("connectionstatechange", event);
+    console.log("connectionstatechange", event.target);
   };
 
   pc.onsignalingstatechange = (event) => {
-    console.log("onsignalingstatechange", event);
+    console.log("onsignalingstatechange", event.target);
   };
 
   pc.addEventListener("iceconnectionstatechange", (event) => {
-    console.log("iceconnectionstatechange", event);
+    console.log("iceConnectionState", event.target!);
   });
 };
 

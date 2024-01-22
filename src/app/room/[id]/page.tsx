@@ -5,7 +5,7 @@ import { useUser } from '@/context/user';
 import { useOffer } from '@/context/offer';
 import { useAnswer } from '@/context/answer';
 import { useStream } from '@/context/stream';
-import { RoomMember } from '@prisma/client';
+import { Room, RoomMember } from '@prisma/client';
 import { getRoom } from '@/utils/supabase';
 import { addIce, getCallStarterStatus, getPeerConnection, peerConnectionIcecandidate, peerSetRemoteDescription, setupTheOffer } from '@/utils/peerConnection';
 
@@ -46,14 +46,14 @@ export default function Home({
 
 
   useEffect(() => {
-    // if (remoteStream) {
-    //   const remoteVideoData = document.getElementById('remoteStream') as HTMLVideoElement;
-    //   setRemoteVideo(remoteVideoData);
+    if (remoteStream) {
+      const remoteVideoData = document.getElementById('remoteStream') as HTMLVideoElement;
+      setRemoteVideo(remoteVideoData);
 
-    //   if (remoteVideoData && remoteVideoData instanceof HTMLVideoElement) {
-    //     remoteVideoData.srcObject = remoteStream;
-    //   }
-    // }
+      if (remoteVideoData && remoteVideoData instanceof HTMLVideoElement) {
+        remoteVideoData.srcObject = remoteStream;
+      }
+    }
 
     console.log('i fire once: remoteStream');
   }, [remoteStream])
@@ -116,42 +116,42 @@ export default function Home({
 
       });
 
-
-      //setup the listener for the peer connection
-
-
-
-
-      //setup the listener for the socket connection
-      const roomChannel = await getRoom({ roomId: currentRoom!.id });
-
-
-
-      roomChannel
-        .on(
-          'broadcast',
-          { event: 'iceCandidate' },
-          async (payload: any) => {
-            addIce({ ...payload.payload.candidate });
-          }
-        ).subscribe()
-
-      roomChannel
-        .on(
-          'broadcast',
-          { event: 'description' },
-          (payload: any) => {
-            const pc = getPeerConnection();
-            if (payload.payload.type === "answer" && pc.currentRemoteDescription) return;
-            peerSetRemoteDescription({
-              sdp: payload.payload.sdp,
-              type: payload.payload.type,
-            })
-          }
-        ).subscribe()
-
+      roomChannelSub()
       setLoading(false);
     }
+  }
+
+
+  const roomChannelSub = async () => {
+    const roomChannel = await getRoom({ roomId: id });
+    roomChannel
+      .on(
+        'broadcast',
+        { event: 'description' },
+        async (payload: any) => {
+          const pc = getPeerConnection();
+          if (payload.payload.type === "answer" && pc.currentRemoteDescription) return;
+
+          peerSetRemoteDescription({
+            sdp: payload.payload.sdp,
+            type: payload.payload.type,
+          })
+        }
+      ).on(
+        'broadcast',
+        { event: 'iceCandidate' },
+        async (payload: any) => {
+          addIce({ ...payload.payload.candidate });
+        }
+      ).on(
+        'broadcast',
+        { event: 'callerJoining' },
+        async (payload: any) => {
+          console.log(payload, "callerJoining", generateOffer)
+          if (generateOffer)
+            await generateOffer({ roomMember: roomMembers[currentRoomMemberId] });
+        }
+      ).subscribe()
   }
 
 
