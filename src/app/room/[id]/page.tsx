@@ -1,15 +1,13 @@
 "use client"
 import { useEffect, useState } from 'react';
-
-import { RealtimeChannel, createClient } from '@supabase/supabase-js'
 import { useRoom } from '@/context/room';
 import { useUser } from '@/context/user';
 import { useOffer } from '@/context/offer';
 import { useAnswer } from '@/context/answer';
 import { useStream } from '@/context/stream';
-import { RoomMember } from '@prisma/client';
+import { Room, RoomMember } from '@prisma/client';
 import { getRoom } from '@/utils/supabase';
-import { getPeerConnection } from '@/utils/peerConnection';
+import { addIce, getCallStarterStatus, getPeerConnection, peerConnectionIcecandidate, peerSetRemoteDescription, setupTheOffer } from '@/utils/peerConnection';
 
 
 export default function Home({
@@ -23,18 +21,13 @@ export default function Home({
   const [localVideo, setLocalVideo] = useState<HTMLVideoElement>();
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Simple function to log any messages we receive
-  function messageReceived(payload: any) {
-    console.log(payload)
-  }
-
   const { room, creator, roomMembers, currentRoomMemberId, fetchRoom } = useRoom();
 
   const { user } = useUser();
 
-  const { generateOffer, offerCandidates, offerDescription, setupOfferIceCandidate } = useOffer();
+  const { generateOffer, offerDescription, } = useOffer();
 
-  const { generateAnswer, setupAnswer, setupAnswerIceCandidate } = useAnswer();
+  const { generateAnswer, } = useAnswer();
 
   const { localStream, setStream, remoteStream } = useStream();
 
@@ -48,6 +41,7 @@ export default function Home({
         localVideoData.srcObject = localStream;
       }
     }
+    console.log('i fire once: localStream');
   }, [localStream])
 
 
@@ -61,11 +55,13 @@ export default function Home({
       }
     }
 
+    console.log('i fire once: remoteStream');
   }, [remoteStream])
 
 
   useEffect(() => {
     setupChannel();
+    console.log('i fire once: channel');
   }, [])
 
 
@@ -75,6 +71,10 @@ export default function Home({
       let creatorData = creator;
       let currentRoom = room;
       let currentRoomMember: RoomMember = roomMembers[currentRoomMemberId];
+
+      await setStream()
+
+
       if (!room) {
         const data = await fetchRoom({ roomId: id, userId: user.id });
         creatorData = data.creator;
@@ -83,7 +83,12 @@ export default function Home({
       }
 
       const pc = getPeerConnection()
-      console.log(pc)
+
+      if (currentRoom)
+        await peerConnectionIcecandidate({
+          roomId: currentRoom.id,
+          roomMemberId: currentRoomMember.id
+        })
 
       if (creatorData && generateOffer) {
         await generateOffer({ roomMember: currentRoomMember });
@@ -91,61 +96,62 @@ export default function Home({
         await generateAnswer({ roomMember: currentRoomMember, room: currentRoom! });
       }
 
-      console.log(pc)
 
 
-      pc.addEventListener('connectionstatechange', (event) => {
-        console.log("connectionstatechange", event)
-      });
-      pc.addEventListener('icegatheringstatechange', (event) => {
-        console.log("icegatheringstatechange", event)
-      });
-
-
-      pc.addEventListener('iceconnectionstatechange', (event) => {
-        console.log("iceconnectionstatechange", event)
-      });
-
-      pc.addEventListener('negotiationneeded', (event) => {
+      pc.addEventListener('negotiationneeded', async (event) => {
         console.log("negotiationneeded", event)
+        const creator = getCallStarterStatus();
+        if (creator) {
+          // const offer = await setupTheOffer();
+
+          if (generateOffer)
+            await generateOffer({ roomMember: currentRoomMember });
+
+        } else {
+          //TODO: investigate what can be done here
+
+          console.log("here");
+        }
+
+
       });
 
-      //setup the listener for the peer connection
-
-      await setStream()
-
-
-
-      //setup the listener for the socket connection
-      const roomChannel = getRoom({ roomId: currentRoom!.id });
-
-
-
-      // roomChannel
-      //   .on(
-      //     'broadcast',
-      //     { event: 'iceCandidate' },
-      //     //TODO setup the s
-      //     (payload) => messageReceived(payload)
-      //   )
-      //   .subscribe()
-
-      roomChannel
-        .on(
-          'broadcast',
-          { event: 'description' },
-          (payload: any) => {
-            if (setupAnswer) setupAnswer({
-              sdp: payload.payload.sdp,
-              type: payload.payload.type,
-            })
-
-          }
-        )
-        .subscribe()
-
+      roomChannelSub()
       setLoading(false);
     }
+  }
+
+
+  const roomChannelSub = async () => {
+    const roomChannel = await getRoom({ roomId: id });
+    roomChannel
+      .on(
+        'broadcast',
+        { event: 'description' },
+        async (payload: any) => {
+          const pc = getPeerConnection();
+          if (payload.payload.type === "answer" && pc.currentRemoteDescription) return;
+
+          peerSetRemoteDescription({
+            sdp: payload.payload.sdp,
+            type: payload.payload.type,
+          })
+        }
+      ).on(
+        'broadcast',
+        { event: 'iceCandidate' },
+        async (payload: any) => {
+          addIce({ ...payload.payload.candidate });
+        }
+      ).on(
+        'broadcast',
+        { event: 'callerJoining' },
+        async (payload: any) => {
+          console.log(payload, "callerJoining", generateOffer)
+          if (generateOffer)
+            await generateOffer({ roomMember: roomMembers[currentRoomMemberId] });
+        }
+      ).subscribe()
   }
 
 
@@ -163,13 +169,78 @@ export default function Home({
 
 
         <div className='w-full md:w-1/2 h-[400px] bg-red-300 rounded-md relative overflow-hidden' >
-          <video id="remoteStream" autoPlay playsInline className='w-full h-full absolute object-cover' />
+          <video id="remoteStream" autoPlay playsInline className='w-full h-full absolute object-cover' muted />
         </div>
 
       </div>
 
       <div className="mb-32 w-full flex flex-wrap">
 
+
+        <div
+          className="group rounded-md border border-transparent w-1/2 px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
+          onClick={async () => {
+
+            const pc = getPeerConnection()
+
+            const roomMember = roomMembers[currentRoomMemberId];
+
+            if (room)
+              await peerConnectionIcecandidate({
+                roomId: room.id,
+                roomMemberId: roomMember.id
+              })
+
+            if (creator && generateOffer) {
+              await generateOffer({ roomMember: roomMembers[currentRoomMemberId] });
+            } else if (generateAnswer) {
+              await generateAnswer({ roomMember: roomMember, room: room! });
+            }
+
+            pc.addEventListener('negotiationneeded', async (event) => {
+              console.log("negotiationneeded", event)
+              const creator = getCallStarterStatus();
+              if (creator) {
+                await setupTheOffer();
+              } else {
+                //TODO: investigate what can be done here
+                console.log("here");
+              }
+            });
+
+          }}
+        >
+          <h2 className={`mb-3 text-2xl font-semibold`}>
+            Join{' '}
+            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
+              -&gt;
+            </span>
+          </h2>
+          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
+            Join streaming
+          </p>
+        </div>
+
+
+        <div
+          className="group rounded-md border border-transparent w-1/2 px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
+          onClick={async () => {
+
+            await setStream()
+
+
+          }}
+        >
+          <h2 className={`mb-3 text-2xl font-semibold`}>
+            stream{' '}
+            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
+              -&gt;
+            </span>
+          </h2>
+          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
+            Join streaming
+          </p>
+        </div>
 
         <div
           className="group rounded-md border border-transparent w-1/2 px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"

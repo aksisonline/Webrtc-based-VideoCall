@@ -22,24 +22,6 @@ export default function Home() {
   }
 
 
-  useEffect(() => {
-
-    // if (clientData) {
-
-    //   const myChannel = clientData.channel('room')
-    //   setCurrentRoom(myChannel)
-
-    //   setRemoteVideo(document.getElementById('remoteStream') as HTMLVideoElement);
-    //   setLocalVideo(document.getElementById('localStream') as HTMLVideoElement);
-    // }
-
-    // console.log("remoteVideo", remoteVideo)
-    // console.log("localVideo", localVideo)
-    // return () => {
-
-    // }
-  }, [])
-
 
   // useEffect(() => {
 

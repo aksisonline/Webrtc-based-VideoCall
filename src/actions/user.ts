@@ -24,7 +24,6 @@ export async function createUserAction({
     },
   });
 
-  console.log("user", user);
   return user;
 }
 
