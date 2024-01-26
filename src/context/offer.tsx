@@ -59,11 +59,11 @@ const OfferProvider: React.FC<Props> = ({ children }) => {
                     roomMemberId: roomMember.id,
                 })
             } catch (e) {
-                console.log("e", e)
+                console.error("e", e)
             }
 
         } catch (e) {
-            console.log(e)
+            console.error(e)
         }
     }
 

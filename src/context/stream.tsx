@@ -44,45 +44,6 @@ const StreamProvider: React.FC<Props> = ({ children }) => {
         const pc = getPeerConnection();
         setLocalStream(localStreamData);
 
-        // // Push tracks from local stream to peer connection
-        // localStreamData.getTracks().forEach((track) => {
-        //     console.log("track", track);
-        //     console.log("localStreamData", localStreamData);
-        //     pc.addTrack(track, localStreamData);
-        // });
-
-        // // Pull tracks from remote stream, add to video stream
-        // // pc.ontrack = (event) => {
-        // //   console.log("ontrack", event);
-        // //   const [remoteStream] = event.streams;
-        // //   remoteVideo.srcObject = remoteStream;
-        // //   console.log("remoteStream", remoteStream);
-        // // };
-
-        // remoteStream.addEventListener("addtrack", () => {
-        //     console.log("added");
-        // });
-
-        // remoteVideo.srcObject = remoteStream;
-        // console.log("remoteVideo", remoteVideo.srcObject);
-
-        // pc.ontrack = (event) => {
-        //     event.streams[0].getTracks().forEach((track) => {
-        //         remoteStream.addTrack(track);
-        //     });
-        // };
-
-        // // pc.ontrack = (ev: any) => {
-        // //     if (ev.streams && ev.streams[0]) {
-        // //         remoteVideo.srcObject = ev.streams[0];
-        // //     } else {
-        // //         let inboundStream = new MediaStream(ev.track);
-        // //         remoteVideo.srcObject = inboundStream;
-        // //     }
-        // // };
-
-
-
         await setupStream({
             localStreamData,
             remoteVideo
@@ -118,8 +79,6 @@ const StreamProvider: React.FC<Props> = ({ children }) => {
 
 
     const stopMediaStream = () => {
-
-
         if (localStream) {
             localStream.getTracks().forEach(track => track.stop());
         }

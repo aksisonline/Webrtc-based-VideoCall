@@ -75,7 +75,7 @@ const RoomProvider: React.FC<Props> = ({ children }) => {
         });
 
         if (!room || (room != null && !room!.isActive)) {
-            console.log("error")
+            console.error("error")
             throw new Error();
         }
 
@@ -89,7 +89,7 @@ const RoomProvider: React.FC<Props> = ({ children }) => {
         });
 
         if (!roomMember) {
-            console.log("error")
+            console.error("error")
             throw new Error();
         }
         setCurrentRoomMemberId(roomMember.id);
@@ -99,7 +99,7 @@ const RoomProvider: React.FC<Props> = ({ children }) => {
         });
 
         if (!roomMembersData) {
-            console.log("error")
+            console.error("error")
             throw new Error();
         }
 

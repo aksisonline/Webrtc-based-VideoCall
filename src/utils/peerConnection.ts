@@ -30,9 +30,10 @@ export const getCallStarterStatus = () => {
 };
 
 export const closePeerConnection = async () => {
-  if (!pc) await setupPeerConnection();
-  pc!.close();
-  pc = null;
+  if (pc) {
+    pc!.close();
+    pc = null;
+  }
 };
 
 /**
@@ -173,7 +174,6 @@ export const peerConnectionIcecandidate = async ({
 
   pc!.ondatachannel = (event) => {
     const dataChannel = event.channel;
-    console.log("dataChannel", dataChannel, event);
   };
 };
 
@@ -187,31 +187,12 @@ export const setupStream = async ({
   if (!pc) await setupPeerConnection();
   // Push tracks from local stream to peer connection
   localStreamData.getTracks().forEach((track) => {
-    console.log("track", track);
-    console.log("localStreamData", localStreamData);
     pc!.addTrack(track, localStreamData);
   });
 
-  // Pull tracks from remote stream, add to video stream
-  // pc!.ontrack = (event) => {
-  //   console.log("ontrack", event);
-  //   const [remoteStream] = event.streams;
-  //   remoteVideo.srcObject = remoteStream;
-  //   console.log("remoteStream", remoteStream);
-  // };
   const remoteStream = new MediaStream();
 
-  remoteStream.addEventListener("addtrack", () => {
-    console.log("added");
-  });
-
   remoteVideo.srcObject = remoteStream;
-  console.log("remoteVideo", remoteVideo.srcObject);
-  // pc!.ontrack = (event) => {
-  //   event.streams[0].getTracks().forEach((track) => {
-  //     remoteStream.addTrack(track);
-  //   });
-  // };
 
   pc!.ontrack = (ev: any) => {
     if (ev.streams && ev.streams[0]) {
@@ -234,19 +215,19 @@ export const setupDataChannel = async (roomId: string) => {
   dataChannel = pc!.createDataChannel(roomId);
 
   dataChannel.onopen = (event) => {
-    console.log("open", event);
+    // console.log("open", event);
   };
 
   dataChannel.onclose = (event) => {
-    console.log("onclose", event);
+    // console.log("onclose", event);
   };
 
   dataChannel.onmessage = (event) => {
-    console.log("dataChannel message", event, event.data);
+    // console.log("dataChannel message", event, event.data);
   };
 
   dataChannel.onerror = (event) => {
-    console.log("on error", event);
+    // console.log("on error", event);
   };
 
   return dataChannel;

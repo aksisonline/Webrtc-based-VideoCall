@@ -1,8 +1,20 @@
+"use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useStream } from '@/context/stream';
 import Link from 'next/link';
+import { useEffect } from 'react';
 
 export default function Home() {
+
+
+  const { stopMediaStream } = useStream()
+  useEffect(() => {
+    stopMediaStream();
+    return () => {
+
+    }
+  }, [])
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-between p-2 md:p-24">
@@ -22,7 +34,7 @@ export default function Home() {
             </CardContent>
           </Card>
         </Link>
-        <Link href={"/room/join"} className='flex-1'>
+        {/* <Link href={"/room/join"} className='flex-1'>
           <Card className="group rounded-md border-gray-100/50 flex-1 cursor-pointer select-none border-0 hover:border-[1px] duration-200">
             <CardHeader className='mb-4 pb-0'>
               <CardTitle>
@@ -36,7 +48,7 @@ export default function Home() {
               <p>Join a room created by your friend</p>
             </CardContent>
           </Card>
-        </Link>
+        </Link> */}
       </div>
     </main>
   )
