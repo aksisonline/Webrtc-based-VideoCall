@@ -1,6 +1,6 @@
 'use client'
 
-import { createRoomAction } from '@/actions/createRoom';
+import { createRoomAction } from '@/actions/room';
 import { fetchRoomAction, fetchRoomMemberAction, fetchRoomMembersAction } from '@/actions/fetchRoom';
 import { RoomMembers } from '@/interface/members';
 import { Room, RoomMember } from '@prisma/client';
@@ -13,13 +13,15 @@ const initialValues: {
     creator: boolean,
     createRoom?: ({ userId }: { userId: string }) => Promise<{ room: Room, roomMember: RoomMember }>,
     fetchRoom?: ({ userId, roomId }: { userId: string, roomId: string }) => Promise<{ room: Room, roomMember: RoomMember, creator: boolean }>,
+    clearRoom: Function,
 } = {
     room: undefined,
     currentRoomMemberId: "",
     roomMembers: {},
     creator: true,
     createRoom: undefined,
-    fetchRoom: undefined
+    fetchRoom: undefined,
+    clearRoom: () => { }
 };
 
 type Props = {
@@ -31,10 +33,21 @@ const RoomContext = React.createContext(initialValues);
 const useRoom = () => useContext(RoomContext);
 
 const RoomProvider: React.FC<Props> = ({ children }) => {
-    const [room, serRoom] = useState<Room>();
+    const [room, setRoom] = useState<Room>();
     const [roomMembers, setRoomMembers] = useState<RoomMembers>({});
     const [creator, setCreator] = useState<boolean>(true);
     const [currentRoomMemberId, setCurrentRoomMemberId] = useState<string>("");
+
+
+    // called before going to the room screen
+    const clearRoom = async () => {
+        setRoom(undefined)
+        setRoomMembers({})
+        setCreator(true)
+        setCurrentRoomMemberId("")
+
+    }
+
 
     // called before going to the room screen
     const createRoom = async ({ userId }: { userId: string }): Promise<{ room: Room, roomMember: RoomMember }> => {
@@ -43,7 +56,7 @@ const RoomProvider: React.FC<Props> = ({ children }) => {
         });
 
         // create a room in the database
-        serRoom({ ...data.room })
+        setRoom({ ...data.room })
         const members = { ...roomMembers };
 
         members[data.roomMember.id] = data.roomMember;
@@ -57,18 +70,18 @@ const RoomProvider: React.FC<Props> = ({ children }) => {
 
     // called before going to the room screen
     const fetchRoom = async ({ userId, roomId }: { userId: string, roomId: string }): Promise<{ room: Room, roomMember: RoomMember, creator: boolean }> => {
-        const room = await fetchRoomAction({
+        const room: Room | null = await fetchRoomAction({
             roomId
         });
 
-        if (!room) {
+        if (!room || (room != null && !room!.isActive)) {
             console.log("error")
             throw new Error();
         }
 
 
         // create a room in the database
-        serRoom({ ...room })
+        setRoom({ ...room })
 
         const roomMember = await fetchRoomMemberAction({
             userId,
@@ -113,6 +126,7 @@ const RoomProvider: React.FC<Props> = ({ children }) => {
                 room,
                 createRoom,
                 fetchRoom,
+                clearRoom,
                 creator,
                 roomMembers,
                 currentRoomMemberId

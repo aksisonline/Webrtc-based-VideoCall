@@ -79,7 +79,12 @@ const UserProvider: React.FC<Props> = ({ children }) => {
 
         } else {
             //redirect to login page
-            await createUser({ name: "User Name - " + `${(Math.random() * 100).toFixed(3)}` });
+            try {
+                await createUser({ name: "User Name - " + `${(Math.random() * 100).toFixed(3)}` });
+            }
+            catch (e) {
+                alert(e);
+            }
         }
         setLoading(false)
     }

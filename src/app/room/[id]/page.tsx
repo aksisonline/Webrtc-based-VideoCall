@@ -7,7 +7,7 @@ import { useAnswer } from '@/context/answer';
 import { useStream } from '@/context/stream';
 import { Room, RoomMember } from '@prisma/client';
 import { getRoom } from '@/utils/supabase';
-import { addIce, getCallStarterStatus, getDataChannel, getPeerConnection, peerConnectionIcecandidate, peerSetRemoteDescription, setupDataChannel, setupTheOffer } from '@/utils/peerConnection';
+import { addIce, closePeerConnection, getCallStarterStatus, getPeerConnection, peerConnectionIcecandidate, peerSetRemoteDescription, setupDataChannel, setupTheOffer } from '@/utils/peerConnection';
 import { Card, CardContent } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import MicrophoneSVG from '@/assets/icons/microphone';
@@ -15,6 +15,8 @@ import MicrophoneOffSVG from '@/assets/icons/microphoneOff';
 import VideoSVG from '@/assets/icons/video';
 import VideoOffSVG from '@/assets/icons/videoOff';
 import EndCallSVG from '@/assets/icons/endCall';
+import { useRouter } from 'next/navigation';
+import { deleteRoomAction } from '@/actions/room';
 
 
 export default function Home({
@@ -23,6 +25,42 @@ export default function Home({
   params: { id: string }
 }) {
 
+  const router = useRouter()
+
+
+  const endCallFunction = async () => {
+    // Your logic here
+    await closePeerConnection();
+    await stopMediaStream()
+    await deleteRoomAction({ roomId: id })
+    router.push(`/`)
+    const roomChannel = await getRoom({ roomId: id });
+    roomChannel.send({
+      type: 'broadcast',
+      event: 'close',
+      payload: {
+      },
+    })
+  };
+
+  // Function to run when the page is about to be closed
+  const handleBeforeUnload = (e: any) => {
+    // Run your custom function here
+    endCallFunction();
+
+    // Standard message to display the confirmation dialog
+    e.preventDefault();
+    e.returnValue = '';
+  };
+
+  useEffect(() => {
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Clean up the event listener when the component unmounts
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
 
   const [remoteVideo, setRemoteVideo] = useState<HTMLVideoElement>();
   const [localVideo, setLocalVideo] = useState<HTMLVideoElement>();
@@ -36,8 +74,10 @@ export default function Home({
 
   const { generateAnswer, } = useAnswer();
 
-  const { localStream, setStream, remoteStream } = useStream();
+  const { localStream, setStream, remoteStream, pauseAudio, pauseVideo, resumeAudio, resumeVideo, stopMediaStream } = useStream();
 
+  const [micOn, setMicOn] = useState<boolean>(true);
+  const [videoOn, setVideoOn] = useState<boolean>(true);
 
 
   useEffect(() => {
@@ -82,10 +122,17 @@ export default function Home({
       await setStream()
 
       if (!room) {
-        const data = await fetchRoom({ roomId: id, userId: user.id });
-        creatorData = data.creator;
-        currentRoom = data.room;
-        currentRoomMember = data.roomMember;
+        try {
+          const data = await fetchRoom({ roomId: id, userId: user.id });
+          creatorData = data.creator;
+          currentRoom = data.room;
+          currentRoomMember = data.roomMember;
+        } catch (e) {
+
+          endCallFunction();
+          return;
+        }
+
       } else {
         currentRoom = room
       }
@@ -149,6 +196,13 @@ export default function Home({
         async (payload: any) => {
           addIce({ ...payload.payload.candidate });
         }
+      ).on(
+        'broadcast',
+        { event: 'close' },
+        async (payload: any) => {
+
+          endCallFunction();
+        }
       ).subscribe()
   }
 
@@ -176,15 +230,31 @@ export default function Home({
         <Card className='bottom-[1.8%]  mb-10'>
           <CardContent className='p-2 '>
             <ToggleGroup type="multiple" className='gap-x-4'>
-              <ToggleGroupItem value="bold" aria-label="Toggle bold">
-                <MicrophoneSVG className="h-8 w-8" />
-                {/* <MicrophoneOffSVG className="h-8 w-8" /> */}
+              <ToggleGroupItem value="bold" aria-label="Toggle bold" onClick={() => {
+                if (micOn) {
+                  pauseAudio()
+                  setMicOn(false);
+                } else {
+                  resumeAudio()
+                  setMicOn(true);
+                }
+              }}>
+                {micOn ? <MicrophoneSVG className="h-8 w-8" /> : <MicrophoneOffSVG className="h-8 w-8" />}
               </ToggleGroupItem>
-              <ToggleGroupItem value="italic" aria-label="Toggle italic">
-                <VideoSVG className="h-8 w-8" />
-                {/* <VideoOffSVG className="h-8 w-8" /> */}
+              <ToggleGroupItem value="italic" aria-label="Toggle italic" onClick={() => {
+                if (videoOn) {
+                  pauseVideo()
+                  setVideoOn(false);
+                } else {
+                  resumeVideo()
+                  setVideoOn(true);
+                }
+              }}>
+                {videoOn ? <VideoSVG className="h-8 w-8" /> : <VideoOffSVG className="h-8 w-8" />}
               </ToggleGroupItem>
-              <ToggleGroupItem value="underline" aria-label="Toggle underline">
+              <ToggleGroupItem value="underline" aria-label="Toggle underline" onClick={() => {
+                endCallFunction();
+              }}>
                 <EndCallSVG className="h-8 w-8" />
               </ToggleGroupItem>
             </ToggleGroup>

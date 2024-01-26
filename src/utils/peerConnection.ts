@@ -12,7 +12,7 @@ const servers = {
   iceCandidatePoolSize: 10,
 };
 let processing = false;
-let pc: RTCPeerConnection;
+let pc: RTCPeerConnection | null;
 let callStarter: boolean = false;
 
 export const setupPeerConnection = () => {
@@ -29,6 +29,12 @@ export const getCallStarterStatus = () => {
   return callStarter;
 };
 
+export const closePeerConnection = async () => {
+  if (!pc) await setupPeerConnection();
+  pc!.close();
+  pc = null;
+};
+
 /**
  * This is used by the caller to setup its offer
  * and it local description for the peer connection
@@ -38,12 +44,12 @@ export const setupTheOffer = async (): Promise<RTCSessionDescriptionInit> => {
   callStarter = true;
   if (!pc) await setupPeerConnection();
 
-  // if (!pc.localDescription) {
-  const offerDescription = await pc.createOffer();
-  await pc.setLocalDescription(offerDescription);
+  // if (!pc!.localDescription) {
+  const offerDescription = await pc!.createOffer();
+  await pc!.setLocalDescription(offerDescription);
 
   return offerDescription;
-  // } else return pc.localDescription;
+  // } else return pc!.localDescription;
 };
 
 /**
@@ -55,15 +61,15 @@ export const setupTheOffer = async (): Promise<RTCSessionDescriptionInit> => {
  */
 export const peerSetRemoteDescription = async (description: PCDescription) => {
   // if (
-  //   !pc.currentRemoteDescription &&
-  //   pc.signalingState === "have-local-offer"
+  //   !pc!.currentRemoteDescription &&
+  //   pc!.signalingState === "have-local-offer"
   // ) {
   if (!pc) await setupPeerConnection();
   const answerDescription = new RTCSessionDescription({
     sdp: description.sdp,
     type: description.type as RTCSdpType,
   });
-  await pc.setRemoteDescription(answerDescription);
+  await pc!.setRemoteDescription(answerDescription);
   // }
 };
 
@@ -82,9 +88,9 @@ export const setupTheAnswer = async (
     sdp: offerDescription.sdp,
     type: offerDescription.type as RTCSdpType,
   });
-  await pc.setRemoteDescription(description);
-  const answerDescription = await pc.createAnswer();
-  await pc.setLocalDescription(answerDescription);
+  await pc!.setRemoteDescription(description);
+  const answerDescription = await pc!.createAnswer();
+  await pc!.setLocalDescription(answerDescription);
   return answerDescription;
 };
 
@@ -101,7 +107,7 @@ export const addIce = async (iceCandidate: IceCandidate) => {
     iceCandidate.sdpMLineIndex != null &&
     iceCandidate.sdpMid != null &&
     iceCandidate.usernameFragment != null &&
-    pc.remoteDescription != null
+    pc!.remoteDescription != null
   ) {
     let candidate = new RTCIceCandidate({
       candidate: iceCandidate.candidate,
@@ -109,7 +115,7 @@ export const addIce = async (iceCandidate: IceCandidate) => {
       sdpMLineIndex: iceCandidate.sdpMLineIndex,
       usernameFragment: iceCandidate.usernameFragment,
     });
-    pc.addIceCandidate(candidate);
+    pc!.addIceCandidate(candidate);
   }
 };
 
@@ -123,7 +129,7 @@ export const peerConnectionIcecandidate = async ({
   if (!pc) await setupPeerConnection();
 
   const roomChannel = await getRoom({ roomId: roomId });
-  pc.onicecandidate = async (event) => {
+  pc!.onicecandidate = async (event) => {
     if (event.candidate) {
       // Send a message once the client is subscribed
       roomChannel.send({
@@ -148,24 +154,24 @@ export const peerConnectionIcecandidate = async ({
           sdpMLineIndex: event.candidate.sdpMLineIndex,
           usernameFragment: event.candidate.usernameFragment,
         },
-        dataType: pc.localDescription?.type ?? "offer",
+        dataType: pc!.localDescription?.type ?? "offer",
       });
     }
   };
 
-  pc.onconnectionstatechange = (event) => {
+  pc!.onconnectionstatechange = (event) => {
     console.log("connectionstatechange", event.target);
   };
 
-  pc.onsignalingstatechange = (event) => {
+  pc!.onsignalingstatechange = (event) => {
     console.log("onsignalingstatechange", event.target);
   };
 
-  pc.addEventListener("iceconnectionstatechange", (event) => {
+  pc!.addEventListener("iceconnectionstatechange", (event) => {
     console.log("iceConnectionState", event.target!);
   });
 
-  pc.ondatachannel = (event) => {
+  pc!.ondatachannel = (event) => {
     const dataChannel = event.channel;
     console.log("dataChannel", dataChannel, event);
   };
@@ -183,11 +189,11 @@ export const setupStream = async ({
   localStreamData.getTracks().forEach((track) => {
     console.log("track", track);
     console.log("localStreamData", localStreamData);
-    pc.addTrack(track, localStreamData);
+    pc!.addTrack(track, localStreamData);
   });
 
   // Pull tracks from remote stream, add to video stream
-  // pc.ontrack = (event) => {
+  // pc!.ontrack = (event) => {
   //   console.log("ontrack", event);
   //   const [remoteStream] = event.streams;
   //   remoteVideo.srcObject = remoteStream;
@@ -201,13 +207,13 @@ export const setupStream = async ({
 
   remoteVideo.srcObject = remoteStream;
   console.log("remoteVideo", remoteVideo.srcObject);
-  // pc.ontrack = (event) => {
+  // pc!.ontrack = (event) => {
   //   event.streams[0].getTracks().forEach((track) => {
   //     remoteStream.addTrack(track);
   //   });
   // };
 
-  pc.ontrack = (ev: any) => {
+  pc!.ontrack = (ev: any) => {
     if (ev.streams && ev.streams[0]) {
       remoteVideo.srcObject = ev.streams[0];
     } else {
@@ -225,7 +231,7 @@ let dataChannel: RTCDataChannel;
 export const setupDataChannel = async (roomId: string) => {
   if (!pc) await setupPeerConnection();
 
-  dataChannel = pc.createDataChannel(roomId);
+  dataChannel = pc!.createDataChannel(roomId);
 
   dataChannel.onopen = (event) => {
     console.log("open", event);

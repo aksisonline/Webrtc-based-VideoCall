@@ -9,17 +9,8 @@ export const createRoomAction = async ({
   userId: string;
 }): Promise<{ room: Room; roomMember: RoomMember }> => {
   const prisma = getPrisma();
-  const room = await prisma.room.upsert({
-    where: {
-      ownerId_isActive: {
-        ownerId: userId,
-        isActive: true,
-      },
-    },
-    create: {
-      ownerId: userId,
-    },
-    update: {
+  const room = await prisma.room.create({
+    data: {
       ownerId: userId,
     },
   });
@@ -45,4 +36,32 @@ export const createRoomAction = async ({
     room,
     roomMember,
   };
+};
+
+export const deleteRoomAction = async ({ roomId }: { roomId: string }) => {
+  const prisma = getPrisma();
+  await prisma.room.update({
+    where: {
+      id: roomId,
+    },
+    data: {
+      isActive: false,
+    },
+  });
+
+  await prisma.candidate.deleteMany({
+    where: {
+      roomMember: {
+        roomId: roomId,
+      },
+    },
+  });
+
+  await prisma.description.deleteMany({
+    where: {
+      roomMember: {
+        roomId: roomId,
+      },
+    },
+  });
 };

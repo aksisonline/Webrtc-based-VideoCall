@@ -9,7 +9,8 @@ export async function fetchRoomAction({ roomId }: { roomId: string }) {
       id: roomId,
     },
   });
-  return room;
+  if (room?.isActive) return room;
+  else return null;
 }
 
 export async function fetchRoomMemberAction({
