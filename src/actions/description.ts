@@ -26,7 +26,12 @@ export async function addDescriptionAction({
       type: description.type,
       dataType: dataType == "Answer" ? "Answer" : "Offer",
     },
-    update: {},
+    update: {
+      roomMemberId: roomMemberId,
+      sdp: description.sdp ?? "",
+      type: description.type,
+      dataType: dataType == "Answer" ? "Answer" : "Offer",
+    },
   });
 }
 

@@ -36,13 +36,14 @@ export const getCallStarterStatus = () => {
  */
 export const setupTheOffer = async (): Promise<RTCSessionDescriptionInit> => {
   callStarter = true;
-  if (!pc.localDescription) {
-    if (!pc) await setupPeerConnection();
-    const offerDescription = await pc.createOffer();
-    await pc.setLocalDescription(offerDescription);
+  if (!pc) await setupPeerConnection();
 
-    return offerDescription;
-  } else return pc.localDescription;
+  // if (!pc.localDescription) {
+  const offerDescription = await pc.createOffer();
+  await pc.setLocalDescription(offerDescription);
+
+  return offerDescription;
+  // } else return pc.localDescription;
 };
 
 /**
@@ -77,12 +78,11 @@ export const setupTheAnswer = async (
   offerDescription: PCDescription,
 ): Promise<RTCSessionDescriptionInit> => {
   if (!pc) await setupPeerConnection();
-  await pc.setRemoteDescription(
-    new RTCSessionDescription({
-      sdp: offerDescription.sdp,
-      type: offerDescription.type as RTCSdpType,
-    }),
-  );
+  const description = new RTCSessionDescription({
+    sdp: offerDescription.sdp,
+    type: offerDescription.type as RTCSdpType,
+  });
+  await pc.setRemoteDescription(description);
   const answerDescription = await pc.createAnswer();
   await pc.setLocalDescription(answerDescription);
   return answerDescription;
@@ -164,6 +164,11 @@ export const peerConnectionIcecandidate = async ({
   pc.addEventListener("iceconnectionstatechange", (event) => {
     console.log("iceConnectionState", event.target!);
   });
+
+  pc.ondatachannel = (event) => {
+    const dataChannel = event.channel;
+    console.log("dataChannel", dataChannel, event);
+  };
 };
 
 export const setupStream = async ({
@@ -210,4 +215,42 @@ export const setupStream = async ({
       remoteVideo.srcObject = inboundStream;
     }
   };
+};
+
+let dataChannel: RTCDataChannel;
+/**
+ *
+ * @param iceCandidate
+ */
+export const setupDataChannel = async (roomId: string) => {
+  if (!pc) await setupPeerConnection();
+
+  dataChannel = pc.createDataChannel(roomId);
+
+  dataChannel.onopen = (event) => {
+    console.log("open", event);
+  };
+
+  dataChannel.onclose = (event) => {
+    console.log("onclose", event);
+  };
+
+  dataChannel.onmessage = (event) => {
+    console.log("dataChannel message", event, event.data);
+  };
+
+  dataChannel.onerror = (event) => {
+    console.log("on error", event);
+  };
+
+  return dataChannel;
+};
+
+/**
+ *
+ * @param iceCandidate
+ */
+export const getDataChannel = async (roomId: string) => {
+  if (dataChannel) return dataChannel;
+  return setupDataChannel(roomId);
 };

@@ -28,7 +28,7 @@ export default function Create() {
         room, roomMember
       } = await createRoom({ userId: user.id })
       // setStream()
-      await generateOffer({ roomMember });
+      // await generateOffer({ roomMember });
       router.push(`/room/${room.id}`)
     }
 

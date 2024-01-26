@@ -7,7 +7,14 @@ import { useAnswer } from '@/context/answer';
 import { useStream } from '@/context/stream';
 import { Room, RoomMember } from '@prisma/client';
 import { getRoom } from '@/utils/supabase';
-import { addIce, getCallStarterStatus, getPeerConnection, peerConnectionIcecandidate, peerSetRemoteDescription, setupTheOffer } from '@/utils/peerConnection';
+import { addIce, getCallStarterStatus, getDataChannel, getPeerConnection, peerConnectionIcecandidate, peerSetRemoteDescription, setupDataChannel, setupTheOffer } from '@/utils/peerConnection';
+import { Card, CardContent } from '@/components/ui/card';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import MicrophoneSVG from '@/assets/icons/microphone';
+import MicrophoneOffSVG from '@/assets/icons/microphoneOff';
+import VideoSVG from '@/assets/icons/video';
+import VideoOffSVG from '@/assets/icons/videoOff';
+import EndCallSVG from '@/assets/icons/endCall';
 
 
 export default function Home({
@@ -69,19 +76,21 @@ export default function Home({
   const setupChannel = async () => {
     if (user && fetchRoom) {
       let creatorData = creator;
-      let currentRoom = room;
+      let currentRoom: Room;
       let currentRoomMember: RoomMember = roomMembers[currentRoomMemberId];
 
       await setStream()
-
 
       if (!room) {
         const data = await fetchRoom({ roomId: id, userId: user.id });
         creatorData = data.creator;
         currentRoom = data.room;
         currentRoomMember = data.roomMember;
+      } else {
+        currentRoom = room
       }
 
+      await setupDataChannel(currentRoom.id);
       const pc = getPeerConnection()
 
       if (currentRoom)
@@ -101,28 +110,17 @@ export default function Home({
       pc.addEventListener('negotiationneeded', async (event) => {
         console.log("negotiationneeded", event)
         const creator = getCallStarterStatus();
-        if (creator) {
-          // const offer = await setupTheOffer();
-
-          if (generateOffer)
-            await generateOffer({ roomMember: currentRoomMember });
-
-        } else {
-          //TODO: investigate what can be done here
-
-          console.log("here");
-        }
-
-
+        if (creator && generateOffer)
+          await generateOffer({ roomMember: currentRoomMember });
       });
 
-      roomChannelSub()
+      roomChannelSub({ room: currentRoom, roomMember: currentRoomMember })
       setLoading(false);
     }
   }
 
 
-  const roomChannelSub = async () => {
+  const roomChannelSub = async ({ room, roomMember }: { room: Room, roomMember: RoomMember }) => {
     const roomChannel = await getRoom({ roomId: id });
     roomChannel
       .on(
@@ -132,24 +130,24 @@ export default function Home({
           const pc = getPeerConnection();
           if (payload.payload.type === "answer" && pc.currentRemoteDescription) return;
 
-          peerSetRemoteDescription({
-            sdp: payload.payload.sdp,
-            type: payload.payload.type,
-          })
+          if (payload.payload.type === "answer")
+            peerSetRemoteDescription({
+              sdp: payload.payload.sdp,
+              type: payload.payload.type,
+            })
+          else if (payload.payload.type === "offer" && generateAnswer && room)
+            await generateAnswer({
+              roomMember: roomMember, room: room, offerDescriptionData: {
+                sdp: payload.payload.sdp,
+                type: payload.payload.type
+              }
+            });
         }
       ).on(
         'broadcast',
         { event: 'iceCandidate' },
         async (payload: any) => {
           addIce({ ...payload.payload.candidate });
-        }
-      ).on(
-        'broadcast',
-        { event: 'callerJoining' },
-        async (payload: any) => {
-          console.log(payload, "callerJoining", generateOffer)
-          if (generateOffer)
-            await generateOffer({ roomMember: roomMembers[currentRoomMemberId] });
         }
       ).subscribe()
   }
@@ -158,126 +156,215 @@ export default function Home({
 
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-2 md:p-24">
+    <main className="flex  w-screen h-screen items-top justify-center min-w-[320px] min-h-[500px] ">
 
-      <div className='w-full m-2 md:m-10 gap-10 flex flex-col md:flex-row justify-center items-center'>
-
-        <div className='w-full md:w-1/2 h-[400px] bg-white rounded-md relative overflow-hidden' >
-          <video id="localStream" autoPlay playsInline className='w-full h-full absolute object-cover' muted />
-
-        </div>
-
-
-        <div className='w-full md:w-1/2 h-[400px] bg-red-300 rounded-md relative overflow-hidden' >
+      <div className='max-w-[1280px] relative w-full h-full flex flex-col justify-start items-top px-[3%] pt-0 space-y-4'>
+        <div className='max-h-[900px] w-full h-[91%] bg-red-300 rounded-md relative overflow-hidden mt-4' >
           <video id="remoteStream" autoPlay playsInline className='w-full h-full absolute object-cover' muted />
-        </div>
 
-      </div>
+          <div className=' min-w-[120px] w-[40%] md:w-[30%] lg:w-[20%]  absolute  aspect-square bg-white rounded-md 
+          bottom-[2.5%] 
+          right-[2.5%] 
+          overflow-hidden
+        ' >
+            <video id="localStream" autoPlay playsInline className='w-full h-full absolute object-cover' muted />
+          </div>
 
-      <div className="mb-32 w-full flex flex-wrap">
-
-
-        <div
-          className="group rounded-md border border-transparent w-1/2 px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          onClick={async () => {
-
-            const pc = getPeerConnection()
-
-            const roomMember = roomMembers[currentRoomMemberId];
-
-            if (room)
-              await peerConnectionIcecandidate({
-                roomId: room.id,
-                roomMemberId: roomMember.id
-              })
-
-            if (creator && generateOffer) {
-              await generateOffer({ roomMember: roomMembers[currentRoomMemberId] });
-            } else if (generateAnswer) {
-              await generateAnswer({ roomMember: roomMember, room: room! });
-            }
-
-            pc.addEventListener('negotiationneeded', async (event) => {
-              console.log("negotiationneeded", event)
-              const creator = getCallStarterStatus();
-              if (creator) {
-                await setupTheOffer();
-              } else {
-                //TODO: investigate what can be done here
-                console.log("here");
-              }
-            });
-
-          }}
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Join{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Join streaming
-          </p>
         </div>
 
 
-        <div
-          className="group rounded-md border border-transparent w-1/2 px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          onClick={async () => {
-
-            await setStream()
-
-
-          }}
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            stream{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Join streaming
-          </p>
-        </div>
-
-        <div
-          className="group rounded-md border border-transparent w-1/2 px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          onClick={() => {
-            // if (client) {
-
-            //   const channel = client.channel('room')
-            //   channel.subscribe((status) => {
-            //     // Wait for successful connection
-            //     if (status !== 'SUBSCRIBED') {
-            //       return null
-            //     }
-            //     // Send a message once the client is subscribed
-            //     channel.send({
-            //       type: 'broadcast',
-            //       event: 'test',
-            //       payload: { message: 'hello, world' },
-            //     })
-            //   })
-            // }
-            const pc = getPeerConnection()
-            console.log(pc)
-          }}
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Stop{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            stop streaming
-          </p>
-        </div>
-
+        <Card className='bottom-[1.8%]  mb-10'>
+          <CardContent className='p-2 '>
+            <ToggleGroup type="multiple" className='gap-x-4'>
+              <ToggleGroupItem value="bold" aria-label="Toggle bold">
+                <MicrophoneSVG className="h-8 w-8" />
+                {/* <MicrophoneOffSVG className="h-8 w-8" /> */}
+              </ToggleGroupItem>
+              <ToggleGroupItem value="italic" aria-label="Toggle italic">
+                <VideoSVG className="h-8 w-8" />
+                {/* <VideoOffSVG className="h-8 w-8" /> */}
+              </ToggleGroupItem>
+              <ToggleGroupItem value="underline" aria-label="Toggle underline">
+                <EndCallSVG className="h-8 w-8" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </CardContent>
+        </Card>
 
       </div>
     </main>
   )
 }
+
+
+
+// <div
+// className="group rounded-md border border-transparent w-1/2 px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
+// onClick={async () => {
+
+//   const pc = getPeerConnection()
+
+//   const roomMember = roomMembers[currentRoomMemberId];
+
+//   if (room)
+//     await peerConnectionIcecandidate({
+//       roomId: room.id,
+//       roomMemberId: roomMember.id
+//     })
+
+//   if (creator && generateOffer) {
+//     await generateOffer({ roomMember: roomMembers[currentRoomMemberId] });
+//   } else if (generateAnswer) {
+//     await generateAnswer({ roomMember: roomMember, room: room! });
+//   }
+
+//   pc.addEventListener('negotiationneeded', async (event) => {
+//     console.log("negotiationneeded", event)
+//     const creator = getCallStarterStatus();
+//     if (creator) {
+//       await setupTheOffer();
+//     } else {
+//       //TODO: investigate what can be done here
+//       console.log("here");
+//     }
+//   });
+
+// }}
+// >
+// <h2 className={`mb-3 text-2xl font-semibold`}>
+//   Join{' '}
+//   <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
+//     -&gt;
+//   </span>
+// </h2>
+// <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
+//   Join streaming
+// </p>
+// </div>
+
+
+// <div
+// className="group rounded-md border border-transparent w-1/2 px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
+// onClick={async () => {
+
+//   await setStream()
+
+// }}
+// >
+// <h2 className={`mb-3 text-2xl font-semibold`}>
+//   stream{' '}
+//   <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
+//     -&gt;
+//   </span>
+// </h2>
+// <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
+//   Join streaming
+// </p>
+// </div>
+
+// <div
+// className="group rounded-md border border-transparent w-1/2 px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
+// onClick={() => {
+//   // if (client) {
+
+//   //   const channel = client.channel('room')
+//   //   channel.subscribe((status) => {
+//   //     // Wait for successful connection
+//   //     if (status !== 'SUBSCRIBED') {
+//   //       return null
+//   //     }
+//   //     // Send a message once the client is subscribed
+//   //     channel.send({
+//   //       type: 'broadcast',
+//   //       event: 'test',
+//   //       payload: { message: 'hello, world' },
+//   //     })
+//   //   })
+//   // }
+//   const pc = getPeerConnection()
+//   console.log(pc)
+// }}
+// >
+// <h2 className={`mb-3 text-2xl font-semibold`}>
+//   Stop{' '}
+//   <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
+//     -&gt;
+//   </span>
+// </h2>
+// <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
+//   stop streaming
+// </p>
+// </div>
+
+
+// <div
+// className="group rounded-md border border-transparent w-1/2 px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
+// onClick={async () => {
+//   if (room)
+//     await setupDataChannel(room?.id)
+
+
+// }}
+// >
+// <h2 className={`mb-3 text-2xl font-semibold`}>
+//   stream{' '}
+//   <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
+//     -&gt;
+//   </span>
+// </h2>
+// <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
+//   Join streaming
+// </p>
+// </div>
+
+// <div
+// className="group rounded-md border border-transparent w-1/2 px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
+// onClick={async () => {
+
+//   if (room) {
+//     const dataChannel = await getDataChannel(room.id);
+
+//     console.log("dataChannel", dataChannel);
+//     // dataChannel.send("data")
+
+//   }
+
+
+// }}
+// >
+// <h2 className={`mb-3 text-2xl font-semibold`}>
+//   data channel{' '}
+//   <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
+//     -&gt;
+//   </span>
+// </h2>
+// <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
+//   get data channel
+// </p>
+// </div>
+
+
+// <div
+// className="group rounded-md border border-transparent w-1/2 px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
+// onClick={async () => {
+
+//   if (room) {
+//     const dataChannel = await getDataChannel(room.id);
+//     await dataChannel.send(room.id)
+//     await dataChannel.send("message")
+//   }
+
+
+// }}
+// >
+// <h2 className={`mb-3 text-2xl font-semibold`}>
+//   send{' '}
+//   <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
+//     -&gt;
+//   </span>
+// </h2>
+// <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
+//   send message
+// </p>
+// </div>
+

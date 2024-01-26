@@ -2,7 +2,7 @@
 
 import { addDescriptionAction } from '@/actions/description';
 import { PCDescription } from '@/interface/room';
-import { getPeerConnection, setupTheOffer } from '@/utils/peerConnection';
+import { getCallStarterStatus, getPeerConnection, setupTheOffer } from '@/utils/peerConnection';
 import { getRoom } from '@/utils/supabase';
 import { RoomMember } from '@prisma/client';
 import React, { useContext, useState } from "react";
@@ -30,7 +30,6 @@ const OfferProvider: React.FC<Props> = ({ children }) => {
 
 
     const generateOffer = async ({ roomMember }: { roomMember: RoomMember }) => {
-
 
         const roomChannel = await getRoom({ roomId: roomMember.roomId });
 

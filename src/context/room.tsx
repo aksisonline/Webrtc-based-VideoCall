@@ -38,23 +38,20 @@ const RoomProvider: React.FC<Props> = ({ children }) => {
 
     // called before going to the room screen
     const createRoom = async ({ userId }: { userId: string }): Promise<{ room: Room, roomMember: RoomMember }> => {
-        const { room, roomMember } = await createRoomAction({
+        const data = await createRoomAction({
             userId: userId
         });
 
         // create a room in the database
-        serRoom({ ...room })
+        serRoom({ ...data.room })
         const members = { ...roomMembers };
 
-        members[roomMember.id] = roomMember;
+        members[data.roomMember.id] = data.roomMember;
         setRoomMembers({ ...members })
-        setCurrentRoomMemberId(roomMember.id)
+        setCurrentRoomMemberId(data.roomMember.id)
         setCreator(true);
 
-        return {
-            room,
-            roomMember,
-        }
+        return data
     }
 
 

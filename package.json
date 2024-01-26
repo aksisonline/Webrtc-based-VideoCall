@@ -11,6 +11,8 @@
   "dependencies": {
     "@prisma/client": "5.8.1",
     "@radix-ui/react-aspect-ratio": "^1.0.3",
+    "@radix-ui/react-toggle": "^1.0.3",
+    "@radix-ui/react-toggle-group": "^1.0.4",
     "@supabase/supabase-js": "^2.39.3",
     "axios": "^1.6.5",
     "class-variance-authority": "^0.7.0",

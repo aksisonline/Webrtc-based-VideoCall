@@ -10,7 +10,7 @@ import React, { useContext, useState } from "react";
 
 const initialValues: {
     answersDescription?: PCDescription,
-    generateAnswer?: ({ roomMember, room }: { roomMember: RoomMember, room: Room }) => {}
+    generateAnswer?: ({ roomMember, room, offerDescriptionData }: { roomMember: RoomMember, room: Room, offerDescriptionData?: PCDescription }) => {}
 } = {
     answersDescription: undefined,
     generateAnswer: undefined
@@ -28,17 +28,24 @@ const AnswerProvider: React.FC<Props> = ({ children }) => {
     const [answersDescription, setAnswersDescription] = useState<PCDescription>();
 
 
-    const generateAnswer = async ({ roomMember, room }: { roomMember: RoomMember, room: Room }) => {
-        const offerData = await getDescriptionAction({
-            roomId: room.id,
-            dataType: "Offer"
-        })
-        const offerCandidates = await getIceCandidateAction({
-            roomId: room.id,
-            dataType: "Offer"
-        })
+    const generateAnswer = async ({ roomMember, room, offerDescriptionData }: { roomMember: RoomMember, room: Room, offerDescriptionData?: PCDescription }) => {
 
-        const offerDescription = offerData[0];
+
+        let offerDescription: PCDescription;
+        if (!offerDescriptionData) {
+
+            const offerData = await getDescriptionAction({
+                roomId: room.id,
+                dataType: "Offer"
+            })
+            offerDescription = {
+                sdp: offerData[0].sdp,
+                type: offerData[0].type as RTCSdpType
+            };
+        } else {
+            offerDescription = offerDescriptionData;
+        }
+
         const answerDescription = await setupTheAnswer({
             sdp: offerDescription.sdp,
             type: offerDescription.type as RTCSdpType,
@@ -49,13 +56,19 @@ const AnswerProvider: React.FC<Props> = ({ children }) => {
             type: answerDescription.type,
         };
 
-        for (let offerCandidate of offerCandidates) {
-            await addIce({
-                candidate: offerCandidate.candidate,
-                sdpMid: offerCandidate.sdpMid,
-                sdpMLineIndex: offerCandidate.sdpMLineIndex,
-                usernameFragment: offerCandidate.usernameFragment,
+        if (!offerDescriptionData) {
+            const offerCandidates = await getIceCandidateAction({
+                roomId: room.id,
+                dataType: "Offer"
             })
+            for (let offerCandidate of offerCandidates) {
+                await addIce({
+                    candidate: offerCandidate.candidate,
+                    sdpMid: offerCandidate.sdpMid,
+                    sdpMLineIndex: offerCandidate.sdpMLineIndex,
+                    usernameFragment: offerCandidate.usernameFragment,
+                })
+            }
         }
 
         const roomChannel = await getRoom({ roomId: room.id });
