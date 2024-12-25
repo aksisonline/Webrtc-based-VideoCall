@@ -34,7 +34,7 @@ This project is a video calling application built using Next.js 14 with server c
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/your-repo/nextjs-webrtc.git
+   git clone https://github.com/abeltyr/Webrtc-based-VideoCall
    ```
 
 2. Install dependencies:
